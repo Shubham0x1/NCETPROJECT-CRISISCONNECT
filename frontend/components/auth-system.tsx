@@ -1,14 +1,32 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import type { ChangeEvent, FocusEvent } from "react"
 
 // --- Helper Components ---
 
-const Spinner = ({ size = "h-5 w-5" }) => (
+// Define types for component props
+interface SpinnerProps {
+  size?: string;
+}
+
+const Spinner = ({ size = "h-5 w-5" }: SpinnerProps) => (
   <div className={`animate-spin rounded-full ${size} border-t-2 border-b-2 border-primary-foreground`}></div>
 )
 
-const PasswordField = ({ id, name, placeholder, value, onChange, error, disabled, onFocus, onBlur }) => {
+interface PasswordFieldProps {
+  id: string;
+  name: string;
+  placeholder: string;
+  value: string;
+  onChange: (e: ChangeEvent<HTMLInputElement>) => void;
+  error?: string;
+  disabled: boolean;
+  onFocus?: (e: FocusEvent<HTMLInputElement>) => void;
+  onBlur?: (e: FocusEvent<HTMLInputElement>) => void;
+}
+
+const PasswordField = ({ id, name, placeholder, value, onChange, error, disabled, onFocus, onBlur }: PasswordFieldProps) => {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
   return (
     <div className="relative md:col-span-1">
@@ -46,7 +64,19 @@ const PasswordField = ({ id, name, placeholder, value, onChange, error, disabled
   )
 }
 
-const InputField = ({ id, name, type = "text", placeholder, value, onChange, error, disabled, colSpan = "md:col-span-1" }) => (
+interface InputFieldProps {
+  id: string;
+  name: string;
+  type?: string;
+  placeholder: string;
+  value: string;
+  onChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+  error?: string;
+  disabled: boolean;
+  colSpan?: string;
+}
+
+const InputField = ({ id, name, type = "text", placeholder, value, onChange, error, disabled, colSpan = "md:col-span-1" }: InputFieldProps) => (
   <div className={`relative ${colSpan}`}>
     <input
       type={type}
@@ -68,7 +98,18 @@ const InputField = ({ id, name, type = "text", placeholder, value, onChange, err
   </div>
 )
 
-const SelectField = ({ id, name, value, onChange, error, disabled, children, colSpan = "md:col-span-2" }) => (
+interface SelectFieldProps {
+  id: string;
+  name: string;
+  value: string;
+  onChange: (e: ChangeEvent<HTMLSelectElement>) => void;
+  error?: string;
+  disabled: boolean;
+  children: React.ReactNode;
+  colSpan?: string;
+}
+
+const SelectField = ({ id, name, value, onChange, error, disabled, children, colSpan = "md:col-span-2" }: SelectFieldProps) => (
   <div className={`relative ${colSpan}`}>
     <select
       id={id}
@@ -94,7 +135,7 @@ const SelectField = ({ id, name, value, onChange, error, disabled, children, col
 )
 
 // --- Gemini API Call ---
-const callGeminiAPI = async (payload) => {
+const callGeminiAPI = async (payload: { contents: { parts: { text: string }[] }[] }) => {
   const apiKey = "" // Keep this empty, it will be handled by the environment
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`
   try {
@@ -110,26 +151,31 @@ const callGeminiAPI = async (payload) => {
     const result = await response.json()
     return result.candidates?.[0]?.content?.parts?.[0]?.text || null
   } catch (error) {
-    console.error("Error calling Gemini API:", error)
-    return null
-  }
+      console.error("Error calling Gemini API:", error)
+      return null
+    }
 }
 
 // --- Login Page ---
-const LoginPage = ({ onSwitchToCreate, handleAuthSuccess }) => {
+interface LoginPageProps {
+  onSwitchToCreate: () => void;
+  handleAuthSuccess: (data: any) => void;
+}
+
+const LoginPage = ({ onSwitchToCreate, handleAuthSuccess }: LoginPageProps) => {
   const [formData, setFormData] = useState({ email: "", password: "" })
-  const [errors, setErrors] = useState({})
+  const [errors, setErrors] = useState<Record<string, string>>({})
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleChange = (e) => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
     if (errors.api) setErrors({});
   }
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    const newErrors = {}
+    const newErrors: Record<string, string> = {}
     if (!formData.email) newErrors.email = "Email is required."
     if (!formData.password) newErrors.password = "Password is required."
     setErrors(newErrors)
@@ -168,11 +214,11 @@ const LoginPage = ({ onSwitchToCreate, handleAuthSuccess }) => {
         )}
         <div>
           <label htmlFor="login-email" className="block text-sm font-medium text-muted-foreground mb-1">Email</label>
-          <InputField id="login-email" name="email" type="email" value={formData.email} onChange={handleChange} error={errors.email} disabled={isLoading} colSpan="col-span-1" />
+          <InputField id="login-email" name="email" type="email" value={formData.email} onChange={handleChange} error={errors.email} disabled={isLoading} colSpan="col-span-1" placeholder="email@example.com" />
         </div>
         <div>
           <label htmlFor="login-password" className="block text-sm font-medium text-muted-foreground mb-1">Password</label>
-          <PasswordField id="login-password" name="password" value={formData.password} onChange={handleChange} error={errors.password} disabled={isLoading} />
+          <PasswordField id="login-password" name="password" value={formData.password} onChange={(e) => handleChange(e)} error={errors.password} disabled={isLoading} placeholder="Enter your password" />
         </div>
         <div>
           <button type="submit" disabled={isLoading} className="w-full px-4 py-3 flex items-center justify-center font-semibold text-primary-foreground bg-primary rounded-lg hover:bg-primary/90 focus:outline-none focus:ring-4 focus:ring-ring/50 transition-all duration-300 transform hover:-translate-y-1 disabled:opacity-70 disabled:cursor-not-allowed">
@@ -191,8 +237,48 @@ const LoginPage = ({ onSwitchToCreate, handleAuthSuccess }) => {
 }
 
 // --- Create Account Page ---
-const CreateAccountPage = ({ onSwitchToLogin, handleAuthSuccess }) => {
-  const [formData, setFormData] = useState({
+interface ServiceLocation {
+  state: string;
+  city: string;
+  district: string;
+}
+
+interface FormData {
+  fullname: string;
+  email: string;
+  phone: string;
+  password: string;
+  confirmPassword: string;
+  skills: string;
+  bio: string;
+  serviceLocations: ServiceLocation[];
+}
+
+interface LocationErrors {
+  state?: string;
+  city?: string;
+  district?: string;
+}
+
+interface FormErrors {
+  fullname?: string;
+  email?: string;
+  phone?: string;
+  password?: string;
+  confirmPassword?: string;
+  serviceLocations?: LocationErrors[];
+  skills?: string;
+  bio?: string;
+  api?: string;
+}
+
+interface CreateAccountPageProps {
+  onSwitchToLogin: () => void;
+  handleAuthSuccess: (data: any) => void;
+}
+
+const CreateAccountPage = ({ onSwitchToLogin, handleAuthSuccess }: CreateAccountPageProps) => {
+  const [formData, setFormData] = useState<FormData>({
     fullname: "",
     email: "",
     phone: "",
@@ -203,9 +289,9 @@ const CreateAccountPage = ({ onSwitchToLogin, handleAuthSuccess }) => {
     serviceLocations: [{ state: "", city: "", district: "" }],
   })
 
-  const [states, setStates] = useState([]);
-  const [districts, setDistricts] = useState({});
-  const [cities, setCities] = useState({});
+  const [states, setStates] = useState<string[]>([]);
+  const [districts, setDistricts] = useState<Record<number, string[]>>({});
+  const [cities, setCities] = useState<Record<number, string[]>>({});
 
   useEffect(() => {
     const fetchStates = async () => {
@@ -224,10 +310,10 @@ const CreateAccountPage = ({ onSwitchToLogin, handleAuthSuccess }) => {
     fetchStates();
   }, []);
 
-  const [errors, setErrors] = useState({})
+  const [errors, setErrors] = useState<FormErrors>({})
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState("")
-  const [roleSuggestions, setRoleSuggestions] = useState([])
+  const [roleSuggestions, setRoleSuggestions] = useState<string[]>([])
   const [trainingScenario, setTrainingScenario] = useState("")
 
   const [isPasswordFocused, setIsPasswordFocused] = useState(false);
@@ -239,9 +325,9 @@ const CreateAccountPage = ({ onSwitchToLogin, handleAuthSuccess }) => {
     special: false,
   });
 
-  const handleChange = (e) => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
+    setFormData((prev) => ({ ...prev, [name as keyof FormData]: value }))
 
     if (name === "password") {
       setPasswordCriteria({
@@ -254,12 +340,12 @@ const CreateAccountPage = ({ onSwitchToLogin, handleAuthSuccess }) => {
     }
   }
 
-  const handleLocationChange = async (index, e) => {
+  const handleLocationChange = async (index: number, e: ChangeEvent<HTMLSelectElement>) => {
     const { name, value } = e.target;
     const newServiceLocations = [...formData.serviceLocations];
     const currentLocation = { ...newServiceLocations[index] };
 
-    currentLocation[name] = value;
+    currentLocation[name as keyof ServiceLocation] = value;
 
     if (name === "state") {
       currentLocation.district = "";
@@ -297,13 +383,13 @@ const CreateAccountPage = ({ onSwitchToLogin, handleAuthSuccess }) => {
     setFormData((prev) => ({ ...prev, serviceLocations: [...prev.serviceLocations, { state: "", city: "", district: "" }] }))
   }
 
-  const handleRemoveLocation = (index) => {
+  const handleRemoveLocation = (index: number) => {
     const updatedLocations = formData.serviceLocations.filter((_, i) => i !== index)
     setFormData((prev) => ({ ...prev, serviceLocations: updatedLocations }))
   }
 
   const validateForm = () => {
-    const newErrors = {}
+    const newErrors: FormErrors = {};
     if (!formData.fullname) newErrors.fullname = "Full name is required."
     if (!formData.email) newErrors.email = "Email is required."
     if (!formData.phone) newErrors.phone = "Phone number is required."
@@ -317,9 +403,9 @@ const CreateAccountPage = ({ onSwitchToLogin, handleAuthSuccess }) => {
 
     if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = "Passwords do not match."
 
-    const locationErrors = []
+    const locationErrors: LocationErrors[] = []
     formData.serviceLocations.forEach((loc, index) => {
-      const locError = {}
+      const locError: LocationErrors = {}
       if (!loc.state) locError.state = "State is required."
       if (!loc.district) locError.district = "District is required."
       if (!loc.city) locError.city = "City is required."
@@ -332,13 +418,13 @@ const CreateAccountPage = ({ onSwitchToLogin, handleAuthSuccess }) => {
     return newErrors;
   }
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formErrors = validateForm();
 
     if (Object.keys(formErrors).length > 0) {
       const fieldOrder = ['fullname', 'email', 'phone', 'password', 'confirmPassword', 'serviceLocations'];
-      const firstErrorField = fieldOrder.find(field => formErrors[field]);
+      const firstErrorField = fieldOrder.find(field => formErrors[field as keyof FormErrors]);
 
       if (firstErrorField) {
         const elementId = firstErrorField === 'serviceLocations' ? 'state-0' : firstErrorField;
@@ -399,7 +485,7 @@ const CreateAccountPage = ({ onSwitchToLogin, handleAuthSuccess }) => {
     const payload = { contents: [{ parts: [{ text: prompt }] }] }
     const suggestions = await callGeminiAPI(payload)
     if (suggestions) {
-      setRoleSuggestions(suggestions.split("\n").filter((s) => s.length > 0))
+      setRoleSuggestions(suggestions.split("\n").filter((s: string) => s.length > 0))
     } else {
       setApiError("Could not fetch suggestions. Please try again later.")
     }
@@ -408,7 +494,7 @@ const CreateAccountPage = ({ onSwitchToLogin, handleAuthSuccess }) => {
 
   const handleGenerateBio = async () => {
     const requiredFields = ["fullname", "skills"]
-    const missingFields = requiredFields.filter((field) => !formData[field])
+    const missingFields = requiredFields.filter((field) => !(formData[field as keyof FormData]))
     if (missingFields.length > 0) {
       setErrors((prev) => ({ ...prev, bio: `Please fill in ${missingFields.join(", ")} to generate a bio.` }))
       return
@@ -451,7 +537,7 @@ const CreateAccountPage = ({ onSwitchToLogin, handleAuthSuccess }) => {
     setIsLoading(false)
   }
 
-  const CriteriaItem = ({ text, met }) => (
+  const CriteriaItem = ({ text, met }: { text: string, met: boolean }) => (
     <li className={`flex items-center text-sm transition-colors ${met ? 'text-green-400' : 'text-muted-foreground'}`}>
       {met ? (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-green-500" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
@@ -469,23 +555,24 @@ const CreateAccountPage = ({ onSwitchToLogin, handleAuthSuccess }) => {
         {apiError && <p className="text-destructive text-sm text-center">{apiError}</p>}
         <div>
           <label htmlFor="fullname" className="block text-sm font-medium text-muted-foreground mb-1">Full Name</label>
-          <InputField id="fullname" name="fullname" value={formData.fullname} onChange={handleChange} error={errors.fullname} disabled={isLoading} colSpan="md:col-span-2" />
+          <InputField id="fullname" name="fullname" value={formData.fullname} onChange={handleChange} error={errors.fullname} disabled={isLoading} colSpan="md:col-span-2" placeholder="Full Name" />
         </div>
         <div>
           <label htmlFor="email" className="block text-sm font-medium text-muted-foreground mb-1">Email</label>
-          <InputField id="email" name="email" type="email" value={formData.email} onChange={handleChange} error={errors.email} disabled={isLoading} colSpan="md:col-span-2" />
+          <InputField id="email" name="email" type="email" value={formData.email} onChange={handleChange} error={errors.email} disabled={isLoading} colSpan="md:col-span-2" placeholder="email@example.com" />
         </div>
         <div>
           <label htmlFor="phone" className="block text-sm font-medium text-muted-foreground mb-1">Phone Number</label>
-          <InputField id="phone" name="phone" type="tel" value={formData.phone} onChange={handleChange} error={errors.phone} disabled={isLoading} colSpan="md:col-span-2" />
+          <InputField id="phone" name="phone" type="tel" value={formData.phone} onChange={handleChange} error={errors.phone} disabled={isLoading} colSpan="md:col-span-2" placeholder="+91-1234567890" />
         </div>
         <div className="relative">
           <label htmlFor="password" className="block text-sm font-medium text-muted-foreground mb-1">Password</label>
           <PasswordField
             id="password"
             name="password"
+            placeholder="Enter a strong password"
             value={formData.password}
-            onChange={handleChange}
+            onChange={(e) => handleChange(e)}
             error={errors.password}
             disabled={isLoading}
             onFocus={() => setIsPasswordFocused(true)}
@@ -506,7 +593,7 @@ const CreateAccountPage = ({ onSwitchToLogin, handleAuthSuccess }) => {
 
         <div>
           <label htmlFor="confirmPassword" className="block text-sm font-medium text-muted-foreground mb-1">Confirm Password</label>
-          <PasswordField id="confirmPassword" name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} error={errors.confirmPassword} disabled={isLoading} />
+          <PasswordField id="confirmPassword" name="confirmPassword" placeholder="Re-enter your password" value={formData.confirmPassword} onChange={(e) => handleChange(e)} error={errors.confirmPassword} disabled={isLoading} />
         </div>
 
         <div className="md:col-span-2 space-y-4 pt-4">
@@ -525,7 +612,7 @@ const CreateAccountPage = ({ onSwitchToLogin, handleAuthSuccess }) => {
                   {states.map((state) => (<option key={state} value={state}>{state}</option>))}
                 </SelectField>
                 <SelectField id={`district-${index}`} name="district" value={location.district} onChange={(e) => handleLocationChange(index, e)} error={errors.serviceLocations?.[index]?.district} disabled={isLoading || !location.state}>
-                  <option value="">{location.state ? "Select District" : "Select State First"}</option>
+                  <option value="">{location.district ? "Select District" : "Select State First"}</option>
                   {(districts[index] || []).map((district) => (<option key={district} value={district}>{district}</option>))}
                 </SelectField>
                 <SelectField id={`city-${index}`} name="city" value={location.city} onChange={(e) => handleLocationChange(index, e)} error={errors.serviceLocations?.[index]?.city} disabled={isLoading || !location.district}>
@@ -545,7 +632,7 @@ const CreateAccountPage = ({ onSwitchToLogin, handleAuthSuccess }) => {
           <label htmlFor="skills" className="block text-sm font-medium text-muted-foreground mb-2">
             Skills & Interests
           </label>
-          <textarea id="skills" name="skills" rows="3" placeholder="e.g., First Aid, Driving, Cooking, Communication, Logistics..." value={formData.skills} onChange={handleChange} disabled={isLoading} className="w-full px-4 py-3 bg-input text-foreground border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-300"></textarea>
+          <InputField id="skills" name="skills" value={formData.skills} onChange={handleChange} error={errors.skills} disabled={isLoading} colSpan="md:col-span-2" placeholder="e.g., First Aid, Driving, Cooking, Communication, Logistics..." />
           {errors.skills && <p className="text-destructive text-xs mt-1 animate-fade-in-up-sm">{errors.skills}</p>}
           <button type="button" onClick={handleSuggestRoles} disabled={isLoading} className="mt-2 flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-sky-500 rounded-lg hover:bg-sky-600 focus:outline-none focus:ring-4 focus:ring-sky-300 transition-all duration-300 disabled:opacity-50 transform hover:-translate-y-1">
             {isLoading ? <Spinner size="h-4 w-4" /> : "✨"}
@@ -565,7 +652,7 @@ const CreateAccountPage = ({ onSwitchToLogin, handleAuthSuccess }) => {
           <label htmlFor="bio" className="block text-sm font-medium text-muted-foreground mb-2">
             Your Volunteer Bio
           </label>
-          <textarea id="bio" name="bio" rows="4" placeholder="A brief bio will be generated here..." value={formData.bio} onChange={handleChange} disabled={isLoading} className="w-full px-4 py-3 bg-input text-foreground border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-300"></textarea>
+          <InputField id="bio" name="bio" value={formData.bio} onChange={handleChange} error={errors.bio} disabled={isLoading} colSpan="md:col-span-2" placeholder="A brief bio will be generated here..." />
           {errors.bio && <p className="text-destructive text-xs mt-1 animate-fade-in-up-sm">{errors.bio}</p>}
         </div>
 
@@ -618,7 +705,7 @@ const HelpingHandsBackground = () => {
   const hands = Array.from({ length: 15 })
   const HandSvg = () => (
     <svg className="w-full h-full" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice" fill="none" stroke="currentColor" strokeWidth="1">
-      <path d="M62.3,49.2c0.2,0-12.2,2.3-12.2,2.3s-2.1,1-3.7,1.2c-2.3,0.3-4.5,0-4.5,0s-2.2-0.3-3.6-0.8c-1.4-0.5-2.6-1.3-3.2-2.1 c-0.6-0.8-0.7-1.9-0.7-1.9s0.3-2.3,0.3-3.6c0-1.3-0.2-3.6-0.2-3.6s-0.2-2.1,0,1.9c0.2,0.6,0.7,1.1,1.1,1.4c0.4,0.3,0.9,0.5,1.4,0.6c0.7,0.4,1.8,0.6,2.8,0.6 c1,0,2.1,0.2,2.1,0.2s1.7,0.4,2.7,0.9c1,0.5,2.1,1.3,2.8,2.4c0.7,1.1,1,2.7,1,2.7s0.5,2.3,0.5,3.9c0,1.6-0.2,3.1-0.2,3.1 s-0.2,2.1,0,1.9c0.2,0.6,0.7,1.1,1.1,1.4c0.4,0.3,0.9,0.5,1.4,0.6c0.5,0.1,1.1,0.1,1.6,0c0.5-0.1,1,0.3,1.5,0.6c0.5,0.3,0.9,0.7,1.1,1.1c-0.4-0.2-0.9-0.3-1.4-0.3c-0.5,0-1.1,0-1.6,0.1c-0.5,0.1-1,0.3-1.5,0.6c-0.5,0.3-0.9,0.7-1.1,1.1c-0.2,0.4-0.3,0.9-0.3-1.4c0-0.5,0-1.1,0.1-1.6c0.1-0.5,0.3-1,0.6-1.5c0.3-0.5,0.7-0.9,1.1-1.1l0.3,0.1l-0.1,0.1c0,0-2,1.2-2.1,1.3c-0.1,0.1-0.2,0.2-0.2,0.3 v0.3c0,0.1,0.1,0.2,0.2,0.2h0.3c0.1,0,0.2-0.1,0.2-0.2v-0.3c0-0.1-0.1-0.2-0.2-0.2h-0.3c-0.1,0-0.2,0.1-0.2,0.2v0.3 c0,0.1,0.1,0.2,0.2,0.2h0.3c0.1,0,0.2-0.1,0.2-0.2l2.1-1.3l-0.1-0.1l-0.3-0.1c-0.4-0.2-0.8-0.6-1.1-1.1 c-0.3-0.5-0.5-1-0.6-1.5c-0.1-0.5,0-1.1,0.1-1.6c0-0.5,0.2-1,0.3-1.4c0.2-0.4,0.6-0.9,1.1-1.1c0.5-0.3,1-0.5,1.5-0.6 c0.5-0.1,1.1-0.1,1.6,0c0.5,0.1,1,0.3,1.4,0.6c0.4,0.3,0.9,0.7,1.1,1.1c0.2,0.4,0.3,0.9,0.3,1.4c0,0.5-0.1,1.1-0.3,1.6 c-0.2,0.5-0.5,1-1.1,1.4c-0.6,0.4-1.3,0.7-2.1,0.9c-0.8,0.2-1.7,0.3-2.6,0.3s1.8,0.1,2.6,0.3c0.8,0.2,1.5,0.5,2.1,0.9C49.5,41.2,49.5,41.2,49.5,41.2z M49.5,41.2c-0.4-1-1.3-2-2-2.4c-0.7-0.4-1.8-0.6-2.8-0.6c-1,0-2.1,0.2-2.1,0.2s-1.7,0.4-2.7,0.9 c-1,0.5-2.1,1.3-2.8,2.4c-0.7,1.1-1,2.7-1,2.7s-0.5,2.3-0.5,3.9c0,1.6,0.2,3.1,0.2,3.1s0.2,1.3,0,1.9c-0.2,0.6-0.7,1.1-1.1,1.4 c-0.4,0.3-0.9,0.5-1.4,0.6c-0.5,0.1-1.1,0.1-1.6,0c-0.5-0.1-1-0.3-1.5-0.6c-0.5-0.3-0.9-0.7-1.1-1.1c-0.2-0.4-0.3-0.9-0.3-1.4c0,0.5-0.1,1.1-0.3,1.6 c-0.2,0.5-0.5,1-1.1,1.4c-0.6,0.4-1.3,0.7-2.1,0.9c-0.8,0.2-1.7,0.3-2.6,0.3c-0.9,0-1.8,0.1-2.6,0.3 c-0.8,0.2-1.5,0.5-2.1,0.9C49.5,41.2,49.5,41.2,49.5,41.2z" />
+      <path d="M62.3,49.2c0.2,0-12.2,2.3-12.2,2.3s-2.1,1-3.7,1.2c-2.3,0.3-4.5,0-4.5,0s-2.2-0.3-3.6-0.8c-1.4-0.5-2.6-1.3-3.2-2.1 c-0.6-0.8-0.7-1.9-0.7-1.9s0.3-2.3,0.3-3.6c0-1.3-0.2-3.6-0.2-3.6s-0.2-2.1,0,1.9c0.2,0.6,0.7,1.1,1.1,1.4c0.4,0.3,0.9,0.5,1.4,0.6c0.7,0.4,1.8,0.6,2.8,0.6 c1,0,2.1,0.2,2.1,0.2s1.7,0.4,2.7,0.9c1,0.5,2.1,1.3,2.8,2.4c0.7,1.1,1,2.7,1,2.7s0.5,2.3,0.5,3.9c0,1.6-0.2,3.1-0.2,3.1 s-0.2,2.1,0,1.9c0.2,0.6,0.7,1.1,1.1,1.4c0.4,0.3,0.9,0.5,1.4,0.6c0.5,0.1,1.1,0.1,1.6,0c0.5-0.1,1-0.3,1.5-0.6c0.5-0.3,0.9-0.7,1.1-1.1c-0.4-0.2-0.9-0.3-1.4-0.3c-0.5,0-1.1,0-1.6,0.1c-0.5,0.1-1,0.3-1.5,0.6c-0.5,0.3-0.9,0.7-1.1,1.1c-0.2,0.4-0.3,0.9-0.3-1.4c0-0.5,0-1.1,0.1-1.6c0.1-0.5,0.3-1,0.6-1.5c0.3-0.5,0.7-0.9,1.1-1.1l0.3,0.1l-0.1,0.1c0,0-2,1.2-2.1,1.3c-0.1,0.1-0.2,0.2-0.2,0.3 v0.3c0,0.1,0.1,0.2,0.2,0.2h0.3c0.1,0,0.2-0.1,0.2-0.2v-0.3c0-0.1-0.1-0.2-0.2-0.2h-0.3c-0.1,0-0.2,0.1-0.2,0.2v0.3 c0,0.1,0.1,0.2,0.2,0.2h0.3c0.1,0,0.2-0.1,0.2-0.2l2.1-1.3l-0.1-0.1l-0.3-0.1c-0.4-0.2-0.8-0.6-1.1-1.1 c-0.3-0.5-0.5-1-0.6-1.5c-0.1-0.5,0-1.1,0.1-1.6c0-0.5,0.2-1,0.3-1.4c0.2-0.4,0.6-0.9,1.1-1.1c0.5-0.3,1-0.5,1.5-0.6 c0.5-0.1,1.1-0.1,1.6,0c0.5,0.1,1,0.3,1.4,0.6c0.4,0.3,0.9,0.7,1.1,1.1c0.2,0.4,0.3,0.9,0.3,1.4c0,0.5-0.1,1.1-0.3,1.6 c-0.2,0.5-0.5,1-1.1,1.4c-0.6,0.4-1.3,0.7-2.1,0.9c-0.8,0.2-1.7,0.3-2.6,0.3s1.8,0.1,2.6,0.3c0.8,0.2,1.5,0.5,2.1,0.9C49.5,41.2,49.5,41.2,49.5,41.2z M49.5,41.2c-0.4-1-1.3-2-2-2.4c-0.7-0.4-1.8-0.6-2.8-0.6c-1,0-2.1,0.2-2.1,0.2s-1.7,0.4-2.7,0.9 c-1,0.5-2.1,1.3-2.8,2.4c-0.7,1.1-1,2.7-1,2.7s-0.5,2.3-0.5,3.9c0,1.6,0.2,3.1,0.2,3.1s0.2,1.3,0,1.9c-0.2,0.6-0.7,1.1-1.1,1.4 c-0.4,0.3-0.9,0.5-1.4,0.6c-0.5,0.1-1.1,0.1-1.6,0c-0.5-0.1-1-0.3-1.5-0.6c-0.5-0.3-0.9-0.7-1.1-1.1c-0.2-0.4-0.3-0.9-0.3-1.4c0,0.5-0.1,1.1-0.3,1.6 c-0.2,0.5-0.5,1-1.1,1.4c-0.6,0.4-1.3,0.7-2.1,0.9c-0.8,0.2-1.7,0.3-2.6,0.3c-0.9,0-1.8,0.1-2.6,0.3 c-0.8,0.2-1.5,0.5-2.1,0.9C49.5,41.2,49.5,41.2,49.5,41.2z" />
     </svg>
   )
   return (
@@ -626,7 +713,7 @@ const HelpingHandsBackground = () => {
       <div className="relative w-full h-full">
         {hands.map((_, i) => {
           const style = { left: `${Math.random() * 100}%`, width: `${Math.random() * 80 + 40}px`, animationDuration: `${Math.random() * 20 + 15}s`, animationDelay: `${Math.random() * 10}s`, }
-          return ( <div key={i} className="floating-hand text-border" style={style}><HandSvg /></div> )
+          return (<div key={i} className="floating-hand text-border" style={style}><HandSvg /></div>)
         })}
       </div>
     </div>
@@ -638,7 +725,7 @@ const HelpingHandsBackground = () => {
 export default function AuthSystem() {
   const [isLoginView, setIsLoginView] = useState(true)
 
-  const handleAuthSuccess = (data) => {
+  const handleAuthSuccess = (data: any) => {
     localStorage.setItem("isAuthenticated", "true");
     localStorage.setItem("userData", JSON.stringify(data.user));
     localStorage.setItem("token", data.token);
