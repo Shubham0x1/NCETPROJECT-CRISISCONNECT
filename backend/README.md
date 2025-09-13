@@ -1,0 +1,1 @@
+CrisisConnect Backend (Email auth only)\n- POST /api/auth/register  (body: fullname,email,phone,password,serviceLocations)\n- POST /api/auth/login     (body: email,password)\n- GET  /api/locations      (returns embedded india_locations.json)\n
