@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import Image from "next/image" // <-- CHANGED: Import the Image component
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { Menu, Shield, Home, Plus, MapPin, Users, User, LogOut } from "lucide-react"
+import { Menu, Home, Plus, MapPin, Users, User, LogOut } from "lucide-react" // <-- CHANGED: Removed Shield icon
 import { cn } from "@/lib/utils"
 
 const navigation = [
@@ -49,7 +50,14 @@ export function Header() {
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center space-x-2">
-            <Shield className="h-8 w-8 text-primary" />
+            {/* --- THIS IS THE UPDATED LOGO --- */}
+            <Image
+              src="/logo.png"
+              alt="CrisisConnect Logo"
+              width={32}
+              height={32}
+            />
+            {/* --- END OF UPDATE --- */}
             <span className="text-xl font-bold text-foreground">CrisisConnect</span>
           </Link>
 

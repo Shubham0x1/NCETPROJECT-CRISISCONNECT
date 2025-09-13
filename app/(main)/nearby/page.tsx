@@ -14,7 +14,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
-import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { MapPin, Clock, Users, Heart, ArrowLeft, CheckCircle, Navigation } from "lucide-react"
 import Link from "next/link"
@@ -178,7 +177,6 @@ export default function NearbyPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header />
 
       <main className="container mx-auto px-4 py-8">
         {/* Back Button */}

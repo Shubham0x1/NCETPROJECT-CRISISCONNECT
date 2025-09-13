@@ -3,6 +3,9 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ======================================================================== */
+/* Light Theme (Default) - No changes, this was already well-defined.      */
+/* ======================================================================== */
 :root {
   --background: oklch(1 0 0); /* #ffffff - Main background color */
   --foreground: oklch(0.278 0.013 258.338); /* #374151 - Primary text color */
@@ -39,41 +42,49 @@
   --sidebar-ring: oklch(0.647 0.167 70.67); /* #d97706 - Sidebar focus rings */
 }
 
+
+/* ======================================================================== */
+/* Refined Dark Theme - A modern, slate-based dark theme.                   */
+/* ======================================================================== */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.145 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.145 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.647 0.167 70.67);
-  --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.631 0.138 199.829);
-  --secondary-foreground: oklch(1 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.631 0.138 199.829);
-  --accent-foreground: oklch(1 0 0);
-  --destructive: oklch(0.628 0.258 27.325);
-  --destructive-foreground: oklch(1 0 0);
-  --border: oklch(0.269 0 0);
-  --input: oklch(0.269 0 0);
-  --ring: oklch(0.647 0.167 70.67);
+  --background: oklch(0.149 0.011 259.32); /* #020617 - A deep, cool slate for the main background */
+  --foreground: oklch(0.919 0.013 259.32); /* #e2e8f0 - Soft off-white text to reduce eye strain */
+  --card: oklch(0.199 0.014 259.32); /* #0f172a - A slightly lighter slate for cards */
+  --card-foreground: oklch(0.919 0.013 259.32); /* #e2e8f0 - Text on cards */
+  --popover: oklch(0.149 0.011 259.32); /* #020617 - Popover background */
+  --popover-foreground: oklch(0.919 0.013 259.32); /* #e2e8f0 - Popover text */
+  --primary: oklch(0.647 0.167 70.67); /* #d97706 - Kept the same vibrant primary */
+  --primary-foreground: oklch(1 0 0); /* #ffffff - Text on primary buttons */
+  --secondary: oklch(0.631 0.138 199.829); /* #0891b2 - Kept the same vibrant secondary */
+  --secondary-foreground: oklch(1 0 0); /* #ffffff - Text on secondary elements */
+  --muted: oklch(0.271 0.015 259.32); /* #1e293b - Muted background for secondary info */
+  --muted-foreground: oklch(0.671 0.014 259.32); /* #94a3b8 - Muted text */
+  --accent: oklch(0.631 0.138 199.829); /* #0891b2 - Kept the same vibrant accent */
+  --accent-foreground: oklch(1 0 0); /* #ffffff - Text on accent elements */
+  --destructive: oklch(0.628 0.258 27.325); /* #ef4444 - Kept the same vibrant destructive color */
+  --destructive-foreground: oklch(1 0 0); /* #ffffff - Text on destructive elements */
+  --border: oklch(0.271 0.015 259.32); /* #1e293b - Subtle borders */
+  --input: oklch(0.271 0.015 259.32); /* #1e293b - Input backgrounds */
+  --ring: oklch(0.647 0.167 70.67); /* #d97706 - Focus rings */
   --chart-1: oklch(0.647 0.167 70.67);
   --chart-2: oklch(0.631 0.138 199.829);
   --chart-3: oklch(0.627 0.225 271.693);
   --chart-4: oklch(0.368 0.014 257.29);
   --chart-5: oklch(0.802 0.15 85.09);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar: oklch(0.199 0.014 259.32); /* #0f172a - Sidebar background */
+  --sidebar-foreground: oklch(0.919 0.013 259.32); /* #e2e8f0 - Sidebar text */
   --sidebar-primary: oklch(0.647 0.167 70.67);
   --sidebar-primary-foreground: oklch(1 0 0);
   --sidebar-accent: oklch(0.631 0.138 199.829);
   --sidebar-accent-foreground: oklch(1 0 0);
-  --sidebar-border: oklch(0.269 0 0);
+  --sidebar-border: oklch(0.271 0.015 259.32);
   --sidebar-ring: oklch(0.647 0.167 70.67);
 }
 
+
+/* ======================================================================== */
+/* Theme & Base Layer Setup - No changes needed here.                       */
+/* ======================================================================== */
 @theme inline {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);

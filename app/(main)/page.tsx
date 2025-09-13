@@ -1,17 +1,19 @@
+// Corrected File: /app/(main)/page.tsx
+
 "use client"
 
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { AlertTriangle, MapPin, Users, Clock, Plus } from "lucide-react"
 import Link from "next/link"
-import { Header } from "@/components/header"
+// import { Header } from "@/components/header" // <-- THIS LINE IS REMOVED
 import { Footer } from "@/components/footer"
-import AuthSystem from "@/components/auth-system"
 
-// Mock data for incidents
+// Mock data for incidents (Your data is preserved)
 const mockIncidents = [
   {
     id: 1,
@@ -45,6 +47,7 @@ const mockIncidents = [
   },
 ]
 
+// Your helper functions are preserved
 const getSeverityColor = (severity: string) => {
   switch (severity) {
     case "high":
@@ -72,40 +75,33 @@ const getStatusColor = (status: string) => {
 }
 
 export default function HomePage() {
+  const router = useRouter()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [userName, setUserName] = useState("")
   const [userLocations, setUserLocations] = useState<Array<{ state: string; city: string; district: string }>>([])
 
   useEffect(() => {
-    const checkAuth = () => {
-      const authStatus = localStorage.getItem("isAuthenticated")
-      setIsAuthenticated(authStatus === "true")
+    const authStatus = localStorage.getItem("isAuthenticated") === "true"
 
-      if (authStatus === "true") {
-        const userData = localStorage.getItem("userData")
-        console.log("[v0] Raw userData from localStorage:", userData)
-
-        if (userData) {
-          const parsedUserData = JSON.parse(userData)
-          console.log("[v0] Parsed userData:", parsedUserData)
-          console.log("[v0] User name from data:", parsedUserData.name)
-
-          setUserName(parsedUserData.name || "User")
-          setUserLocations(parsedUserData.locations || [])
-        } else {
-          console.log("[v0] No userData found in localStorage")
-          setUserName("User")
-          setUserLocations([])
-        }
+    if (!authStatus) {
+      router.push("/auth") // Redirect if not authenticated
+    } else {
+      setIsAuthenticated(true)
+      const userData = localStorage.getItem("userData")
+      if (userData) {
+        const parsedUserData = JSON.parse(userData)
+        setUserName(parsedUserData.name || "User")
+        setUserLocations(parsedUserData.locations || [])
+      } else {
+        setUserName("User")
+        setUserLocations([])
       }
-
       setIsLoading(false)
     }
+  }, [router])
 
-    checkAuth()
-  }, [])
-
+  // We show a loading state while we check authentication
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -117,14 +113,11 @@ export default function HomePage() {
     )
   }
 
-  if (!isAuthenticated) {
-    return <AuthSystem />
-  }
-
   return (
     <div className="min-h-screen bg-background">
-      <Header />
+      {/* <Header />  <-- THIS LINE IS REMOVED */}
 
+      {/* --- ALL OF YOUR ORIGINAL UI IS PRESERVED BELOW --- */}
       <main className="container mx-auto px-4 py-8">
         {/* Welcome Card */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>

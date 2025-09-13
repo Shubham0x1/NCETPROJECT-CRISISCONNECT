@@ -12,7 +12,6 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
-import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { AlertTriangle, Upload, MapPin, Loader2, CheckCircle, Camera, ArrowLeft } from "lucide-react"
 import Link from "next/link"
@@ -77,7 +76,7 @@ export default function ReportPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header />
+  
 
       <main className="container mx-auto px-4 py-8">
         {/* Back Button */}
