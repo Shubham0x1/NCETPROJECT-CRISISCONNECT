@@ -8,6 +8,7 @@ require("dotenv").config();
 const authRoutes = require("./routes/authRoutes");
 const locationsRoutes = require("./routes/locationsRoutes");
 const userLocationRoutes = require("./routes/userLocationRoutes");
+const incidentRoutes = require("./routes/incidentRoutes"); // <-- ADDED
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -21,6 +22,7 @@ app.use(cors());
 app.use("/api/auth", authRoutes);
 app.use("/api/locations", locationsRoutes);
 app.use("/api/user-locations", userLocationRoutes);
+app.use("/api/incidents", incidentRoutes); // <-- ADDED
 
 // Default route (health check)
 app.get("/", (req, res) => {

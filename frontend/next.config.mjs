@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  reactStrictMode: false, // <-- ADDED THIS LINE
+
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -22,4 +24,3 @@ const nextConfig = {
 };
 
 export default nextConfig;
-

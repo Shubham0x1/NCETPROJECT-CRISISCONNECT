@@ -213,7 +213,7 @@ const LoginPage = ({ onSwitchToCreate, handleAuthSuccess }: LoginPageProps) => {
           </div>
         )}
         <div>
-          <label htmlFor="login-email" className="block text-sm font-medium text-muted-foreground mb-1">Email</label>
+          <label htmlFor="login-email" className="block text-sm font-medium text-muted-foreground mb-1">Email Address</label>
           <InputField id="login-email" name="email" type="email" value={formData.email} onChange={handleChange} error={errors.email} disabled={isLoading} colSpan="col-span-1" placeholder="email@example.com" />
         </div>
         <div>
@@ -558,7 +558,7 @@ const CreateAccountPage = ({ onSwitchToLogin, handleAuthSuccess }: CreateAccount
           <InputField id="fullname" name="fullname" value={formData.fullname} onChange={handleChange} error={errors.fullname} disabled={isLoading} colSpan="md:col-span-2" placeholder="Full Name" />
         </div>
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-muted-foreground mb-1">Email</label>
+          <label htmlFor="email" className="block text-sm font-medium text-muted-foreground mb-1">Email Address</label>
           <InputField id="email" name="email" type="email" value={formData.email} onChange={handleChange} error={errors.email} disabled={isLoading} colSpan="md:col-span-2" placeholder="email@example.com" />
         </div>
         <div>

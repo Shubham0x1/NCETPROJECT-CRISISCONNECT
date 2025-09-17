@@ -1,7 +1,7 @@
+// frontend/app/(main)/report/page.tsx
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { motion } from "framer-motion"
 import { useRouter } from "next/navigation"
@@ -16,13 +16,14 @@ import { Footer } from "@/components/footer"
 import { AlertTriangle, Upload, MapPin, Loader2, CheckCircle, Camera, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 
+// IMPORTANT: The 'value' must match the enum in your backend Incident.js model
 const emergencyCategories = [
-  { value: "fire", label: "Fire", icon: "🔥" },
-  { value: "flood", label: "Flood", icon: "🌊" },
-  { value: "power-outage", label: "Power Outage", icon: "⚡" },
-  { value: "accident", label: "Accident", icon: "🚗" },
-  { value: "medical", label: "Medical Emergency", icon: "🏥" },
-  { value: "other", label: "Other", icon: "⚠️" },
+  { value: "Fire", label: "Fire", icon: "🔥" },
+  { value: "Flood", label: "Flood", icon: "🌊" },
+  { value: "Power Outage", label: "Power Outage", icon: "⚡" },
+  { value: "Accident", label: "Accident", icon: "🚗" },
+  { value: "Medical Emergency", label: "Medical Emergency", icon: "🏥" },
+  { value: "Other", label: "Other", icon: "⚠️" },
 ]
 
 export default function ReportPage() {
@@ -33,14 +34,14 @@ export default function ReportPage() {
   const [formData, setFormData] = useState({
     category: "",
     description: "",
-    location: "",
+    address: "", // Renamed from 'location' for clarity
     media: null as File | null,
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!formData.category || !formData.description || !formData.location) {
+    if (!formData.category || !formData.description || !formData.address) {
       toast({
         title: "Missing Information",
         description: "Please fill in all required fields.",
@@ -51,20 +52,71 @@ export default function ReportPage() {
 
     setIsSubmitting(true)
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 2000))
+    try {
+      // 1. Get auth token from local storage
+      const token = localStorage.getItem("token")
+      if (!token) {
+        throw new Error("You must be logged in to submit a report.")
+      }
 
-    setIsSubmitting(false)
-    setIsSuccess(true)
+      // 2. Geocode the address to get coordinates
+      // Ensure you have NEXT_PUBLIC_GOOGLE_MAPS_API_KEY in your .env.local file
+      const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+        formData.address
+      )}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+      
+      const geoResponse = await fetch(geocodeUrl)
+      const geoData = await geoResponse.json()
+      
+      if (geoData.status !== "OK" || !geoData.results[0]) {
+        throw new Error("Could not verify the address. Please provide a more specific location.")
+      }
+      
+      const { lat, lng } = geoData.results[0].geometry.location
+      const coordinates = [lng, lat] // [longitude, latitude]
 
-    // Show success state for 1 second, then redirect
-    setTimeout(() => {
-      toast({
-        title: "Report Submitted Successfully",
-        description: "Your emergency report has been sent to local authorities.",
+      // Note: Media upload would be handled here, likely as a separate upload to a service like S3/Cloudinary
+      // For now, we are submitting the text data.
+
+      // 3. Send the complete data to your backend
+      const response = await fetch("/api/incidents", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          category: formData.category,
+          description: formData.description,
+          address: formData.address,
+          coordinates: coordinates,
+        }),
       })
-      router.push("/")
-    }, 1500)
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || "Failed to submit the report.")
+      }
+
+      // 4. Handle success
+      setIsSuccess(true)
+      setTimeout(() => {
+        toast({
+          title: "Report Submitted Successfully",
+          description: "Your emergency report has been sent.",
+        })
+        router.push("/")
+      }, 1500)
+
+    } catch (error: any) {
+      toast({
+        title: "Submission Failed",
+        description: error.message || "An unexpected error occurred.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleMediaUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -76,8 +128,6 @@ export default function ReportPage() {
 
   return (
     <div className="min-h-screen bg-background">
-  
-
       <main className="container mx-auto px-4 py-8">
         {/* Back Button */}
         <motion.div
@@ -170,16 +220,16 @@ export default function ReportPage() {
 
                 {/* Location */}
                 <div className="space-y-2">
-                  <Label htmlFor="location" className="text-foreground">
+                  <Label htmlFor="address" className="text-foreground">
                     Location *
                   </Label>
                   <div className="relative">
                     <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input
-                      id="location"
+                      id="address"
                       placeholder="Enter address or landmark"
-                      value={formData.location}
-                      onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                      value={formData.address}
+                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                       className="pl-10 bg-input border-border"
                     />
                   </div>
@@ -223,7 +273,7 @@ export default function ReportPage() {
                   </div>
                 </div>
 
-                {/* Map Placeholder */}
+                {/* Map Placeholder - This can be enhanced later */}
                 <div className="space-y-2">
                   <Label className="text-foreground">Location on Map</Label>
                   <div className="h-48 bg-muted rounded-lg border border-border flex items-center justify-center">
