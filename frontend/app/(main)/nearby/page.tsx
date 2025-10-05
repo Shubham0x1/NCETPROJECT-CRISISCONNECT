@@ -25,7 +25,7 @@ const Map = dynamic(() => import('@/components/Map'), {
   )
 });
 
-// Define a type for the incident data
+// --- INCIDENT TYPE ---
 interface Incident {
   _id: string;
   category: string;
@@ -38,10 +38,11 @@ interface Incident {
     type: 'Point';
     coordinates: [number, number];
   };
+  imageUrl?: string;
   volunteersNeeded?: number; 
 }
 
-// Helper functions remain the same
+// --- HELPER FUNCTIONS ---
 const getSeverity = (category: string) => {
     switch (category) {
         case "Fire": case "Accident": return "high";
@@ -66,6 +67,7 @@ const getStatusColor = (status: string) => {
   }
 }
 
+// --- MAIN NEARBY PAGE COMPONENT ---
 export default function NearbyPage() {
   const { toast } = useToast()
   const [incidents, setIncidents] = useState<Incident[]>([])
@@ -75,103 +77,102 @@ export default function NearbyPage() {
   const [showVolunteerModal, setShowVolunteerModal] = useState(false)
   const [isVolunteering, setIsVolunteering] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [mapCenter, setMapCenter] = useState<[number, number]>([28.5355, 77.3910]); // Default [lat, lng]
+  const [mapCenter, setMapCenter] = useState<[number, number]>([28.5355, 77.3910]);
 
   useEffect(() => {
     const userData = localStorage.getItem("userData");
-    if(userData) setCurrentUserId(JSON.parse(userData).id);
+    if (userData) {
+      setCurrentUserId(JSON.parse(userData).id);
+    }
 
     const fetchIncidents = () => {
-      const token = localStorage.getItem("token")
+      const token = localStorage.getItem("token");
       if (!token) {
-        setError("Please log in to view nearby incidents.")
-        setIsLoading(false)
-        return
+        setError("Please log in to view nearby incidents.");
+        setIsLoading(false);
+        return;
       }
       navigator.geolocation.getCurrentPosition(
         async (position) => {
-          const { latitude, longitude } = position.coords
+          const { latitude, longitude } = position.coords;
           setMapCenter([latitude, longitude]);
           try {
-            const response = await fetch(`/api/incidents/nearby?lat=${latitude}&lng=${longitude}`, { headers: { Authorization: `Bearer ${token}` } })
+            const response = await fetch(`/api/incidents/nearby?lat=${latitude}&lng=${longitude}`, { headers: { Authorization: `Bearer ${token}` } });
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || "Failed to fetch incidents.");
+              const errorData = await response.json();
+              throw new Error(errorData.message || "Failed to fetch incidents.");
             }
-            const data = await response.json()
-            setIncidents(data)
-          } catch (err: any) { setError(err.message) } 
-          finally { setIsLoading(false) }
+            const data = await response.json();
+            setIncidents(data);
+          } catch (err: any) {
+            setError(err.message);
+          } finally {
+            setIsLoading(false);
+          }
         },
         () => {
-          setError("Unable to retrieve your location. Please enable location services.")
-          setIsLoading(false)
+          setError("Unable to retrieve your location. Please enable location services.");
+          setIsLoading(false);
         }
-      )
-    }
-    fetchIncidents()
-  }, [])
+      );
+    };
+    fetchIncidents();
+  }, []);
 
   const handleVolunteerClick = (incident: Incident) => {
-    setSelectedIncident(incident)
-    setShowVolunteerModal(true)
-  }
+    setSelectedIncident(incident);
+    setShowVolunteerModal(true);
+  };
 
   const confirmVolunteer = async () => {
-    if (!selectedIncident) return
-
-    setIsVolunteering(true)
-    const token = localStorage.getItem("token")
-    
+    if (!selectedIncident) return;
+    setIsVolunteering(true);
+    const token = localStorage.getItem("token");
     try {
-        if (!token) throw new Error("Authentication error. Please log in again.");
-        const response = await fetch(`/api/incidents/${selectedIncident._id}/volunteer`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || "Could not volunteer for the incident.");
-        }
-
-        setIncidents((prev) =>
-            prev.map((incident) =>
-            incident._id === selectedIncident._id
-                ? { ...incident, volunteers: [...incident.volunteers, currentUserId || ''] }
-                : incident
-            )
-        );
-        
-        toast({
-            title: "Thank you for volunteering!",
-            description: `You've been assigned to help with the ${selectedIncident.category.toLowerCase()} incident.`,
-        });
-
-    } catch(err: any) {
-        toast({ title: "Error", description: err.message, variant: "destructive" })
+      if (!token) throw new Error("Authentication error. Please log in again.");
+      const response = await fetch(`/api/incidents/${selectedIncident._id}/volunteer`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Could not volunteer for the incident.");
+      }
+      setIncidents((prev) =>
+        prev.map((incident) =>
+          incident._id === selectedIncident._id
+            ? { ...incident, volunteers: [...incident.volunteers, currentUserId || ''] }
+            : incident
+        )
+      );
+      toast({
+        title: "Thank you for volunteering!",
+        description: `You've been assigned to help with the ${selectedIncident.category.toLowerCase()} incident.`,
+      });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
-        setIsVolunteering(false)
-        setShowVolunteerModal(false)
-        setSelectedIncident(null)
+      setIsVolunteering(false);
+      setShowVolunteerModal(false);
+      setSelectedIncident(null);
     }
-  }
+  };
 
   if (isLoading) {
     return (
-        <div className="min-h-screen flex items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin" />
-            <p className="ml-2">Loading nearby incidents...</p>
-        </div>
-    )
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+        <p className="ml-2">Loading nearby incidents...</p>
+      </div>
+    );
   }
 
   if (error) {
     return (
-        <div className="min-h-screen flex items-center justify-center text-destructive">
-            <p>Error: {error}</p>
-        </div>
-    )
+      <div className="min-h-screen flex items-center justify-center text-destructive">
+        <p>Error: {error}</p>
+      </div>
+    );
   }
 
   return (
@@ -193,7 +194,7 @@ export default function NearbyPage() {
             </div>
             <h1 className="text-3xl font-bold text-foreground mb-2">Nearby Incidents</h1>
             <p className="text-muted-foreground max-w-2xl mx-auto">
-                View and volunteer for incidents in your area. Your help can make a difference in your community.
+              View and volunteer for incidents in your area. Your help can make a difference in your community.
             </p>
         </motion.div>
 
@@ -236,7 +237,17 @@ export default function NearbyPage() {
                                         <Badge variant="outline" className={getStatusColor(incident.status)}>{incident.status}</Badge>
                                     </div>
                                 </div>
-                                <p className="text-sm font-medium text-foreground">{incident.description}</p>
+                                {incident.imageUrl && (
+                                  <div className="mt-3">
+                                    <img 
+                                      src={incident.imageUrl} 
+                                      alt={`Image for ${incident.category} incident`}
+                                      className="rounded-lg w-full h-40 object-cover border border-border"
+                                      onError={(e) => (e.currentTarget.style.display = 'none')}
+                                    />
+                                  </div>
+                                )}
+                                <p className="text-sm font-medium text-foreground pt-1">{incident.description}</p>
                                 <div className="flex items-center gap-4 text-xs text-muted-foreground">
                                     <span className="flex items-center gap-1"> <MapPin className="h-3 w-3" /> {incident.address} </span>
                                     <span className="flex items-center gap-1"> <Clock className="h-3 w-3" /> {formatDistanceToNow(new Date(incident.createdAt), { addSuffix: true })} </span>

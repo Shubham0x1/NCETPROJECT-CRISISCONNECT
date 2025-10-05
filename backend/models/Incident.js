@@ -21,6 +21,11 @@ const IncidentSchema = new mongoose.Schema({
       required: true
     }
   },
+  // --- NEW FIELD ADDED HERE ---
+  imageUrl: {
+    type: String, // Stores the URL of the uploaded image
+    required: false // Optional field
+  },
   status: {
     type: String,
     required: true,

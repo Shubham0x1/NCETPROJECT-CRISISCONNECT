@@ -5,7 +5,6 @@ import type { ChangeEvent, FocusEvent } from "react"
 
 // --- Helper Components ---
 
-// Define types for component props
 interface SpinnerProps {
   size?: string;
 }
@@ -134,28 +133,6 @@ const SelectField = ({ id, name, value, onChange, error, disabled, children, col
   </div>
 )
 
-// --- Gemini API Call ---
-const callGeminiAPI = async (payload: { contents: { parts: { text: string }[] }[] }) => {
-  const apiKey = "" // Keep this empty, it will be handled by the environment
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`
-  try {
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    })
-    if (!response.ok) {
-      console.error("API Error Response:", await response.text())
-      return null
-    }
-    const result = await response.json()
-    return result.candidates?.[0]?.content?.parts?.[0]?.text || null
-  } catch (error) {
-      console.error("Error calling Gemini API:", error)
-      return null
-    }
-}
-
 // --- Login Page ---
 interface LoginPageProps {
   onSwitchToCreate: () => void;
@@ -249,8 +226,6 @@ interface FormData {
   phone: string;
   password: string;
   confirmPassword: string;
-  skills: string;
-  bio: string;
   serviceLocations: ServiceLocation[];
 }
 
@@ -267,8 +242,6 @@ interface FormErrors {
   password?: string;
   confirmPassword?: string;
   serviceLocations?: LocationErrors[];
-  skills?: string;
-  bio?: string;
   api?: string;
 }
 
@@ -284,8 +257,6 @@ const CreateAccountPage = ({ onSwitchToLogin, handleAuthSuccess }: CreateAccount
     phone: "",
     password: "",
     confirmPassword: "",
-    skills: "",
-    bio: "",
     serviceLocations: [{ state: "", city: "", district: "" }],
   })
 
@@ -313,8 +284,6 @@ const CreateAccountPage = ({ onSwitchToLogin, handleAuthSuccess }: CreateAccount
   const [errors, setErrors] = useState<FormErrors>({})
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState("")
-  const [roleSuggestions, setRoleSuggestions] = useState<string[]>([])
-  const [trainingScenario, setTrainingScenario] = useState("")
 
   const [isPasswordFocused, setIsPasswordFocused] = useState(false);
   const [passwordCriteria, setPasswordCriteria] = useState({
@@ -325,7 +294,7 @@ const CreateAccountPage = ({ onSwitchToLogin, handleAuthSuccess }: CreateAccount
     special: false,
   });
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name as keyof FormData]: value }))
 
@@ -437,7 +406,7 @@ const CreateAccountPage = ({ onSwitchToLogin, handleAuthSuccess }: CreateAccount
     setIsLoading(true);
     setApiError("");
 
-    const { confirmPassword, skills, bio, ...registrationPayload } = formData;
+    const { confirmPassword, ...registrationPayload } = formData;
     const loginPayload = { email: formData.email, password: formData.password };
 
     try {
@@ -473,70 +442,6 @@ const CreateAccountPage = ({ onSwitchToLogin, handleAuthSuccess }: CreateAccount
     }
   };
 
-  const handleSuggestRoles = async () => {
-    if (!formData.skills) {
-      setErrors((prev) => ({ ...prev, skills: "Please enter some skills or interests first." }))
-      return
-    }
-    setIsLoading(true)
-    setApiError("")
-    setRoleSuggestions([])
-    const prompt = `Based on the skills "${formData.skills}", suggest 3 potential volunteer roles for a crisis response platform in India. For each role, provide a one-sentence description. Format the output as a numbered list.`
-    const payload = { contents: [{ parts: [{ text: prompt }] }] }
-    const suggestions = await callGeminiAPI(payload)
-    if (suggestions) {
-      setRoleSuggestions(suggestions.split("\n").filter((s: string) => s.length > 0))
-    } else {
-      setApiError("Could not fetch suggestions. Please try again later.")
-    }
-    setIsLoading(false)
-  }
-
-  const handleGenerateBio = async () => {
-    const requiredFields = ["fullname", "skills"]
-    const missingFields = requiredFields.filter((field) => !(formData[field as keyof FormData]))
-    if (missingFields.length > 0) {
-      setErrors((prev) => ({ ...prev, bio: `Please fill in ${missingFields.join(", ")} to generate a bio.` }))
-      return
-    }
-    if (formData.serviceLocations.some((loc) => !loc.state || !loc.city)) {
-      setErrors((prev) => ({ ...prev, serviceLocations: [{ state: "Please complete all location details." }] }))
-      return
-    }
-    setIsLoading(true)
-    setApiError("")
-    const locationsString = formData.serviceLocations.map((l) => `${l.city}, ${l.state}`).join("; ")
-    const prompt = `Write a short, encouraging, and professional volunteer bio (2-3 sentences). Here is the information: Name: ${formData.fullname}, Available in: ${locationsString}, Skills/Interests: ${formData.skills}. The bio should highlight their willingness to help in their community across the specified locations.`
-    const payload = { contents: [{ parts: [{ text: prompt }] }] }
-    const generatedBio = await callGeminiAPI(payload)
-    if (generatedBio) {
-      setFormData((prev) => ({ ...prev, bio: generatedBio.trim() }))
-    } else {
-      setApiError("Could not generate a bio. Please try again later.")
-    }
-    setIsLoading(false)
-  }
-
-  const handleGenerateScenario = async () => {
-    const firstLocation = formData.serviceLocations[0]
-    if (!firstLocation || !firstLocation.state || !firstLocation.city) {
-      setErrors((prev) => ({ ...prev, serviceLocations: [{ state: "Please enter at least one full service location." }] }))
-      return
-    }
-    setIsLoading(true)
-    setApiError("")
-    setTrainingScenario("")
-    const prompt = `Generate a brief, one-paragraph training scenario for a new CrisisConnect volunteer based in ${firstLocation.city}, ${firstLocation.state}, India. The scenario should describe a realistic, localized potential emergency where a volunteer's help would be crucial. The tone should be informative and educational, not alarming.`
-    const payload = { contents: [{ parts: [{ text: prompt }] }] }
-    const scenarioText = await callGeminiAPI(payload)
-    if (scenarioText) {
-      setTrainingScenario(scenarioText.trim())
-    } else {
-      setApiError("Could not generate a scenario. Please try again later.")
-    }
-    setIsLoading(false)
-  }
-
   const CriteriaItem = ({ text, met }: { text: string, met: boolean }) => (
     <li className={`flex items-center text-sm transition-colors ${met ? 'text-green-400' : 'text-muted-foreground'}`}>
       {met ? (
@@ -565,6 +470,7 @@ const CreateAccountPage = ({ onSwitchToLogin, handleAuthSuccess }: CreateAccount
           <label htmlFor="phone" className="block text-sm font-medium text-muted-foreground mb-1">Phone Number</label>
           <InputField id="phone" name="phone" type="tel" value={formData.phone} onChange={handleChange} error={errors.phone} disabled={isLoading} colSpan="md:col-span-2" placeholder="+91-1234567890" />
         </div>
+        
         <div className="relative">
           <label htmlFor="password" className="block text-sm font-medium text-muted-foreground mb-1">Password</label>
           <PasswordField
@@ -612,7 +518,7 @@ const CreateAccountPage = ({ onSwitchToLogin, handleAuthSuccess }: CreateAccount
                   {states.map((state) => (<option key={state} value={state}>{state}</option>))}
                 </SelectField>
                 <SelectField id={`district-${index}`} name="district" value={location.district} onChange={(e) => handleLocationChange(index, e)} error={errors.serviceLocations?.[index]?.district} disabled={isLoading || !location.state}>
-                  <option value="">{location.district ? "Select District" : "Select State First"}</option>
+                  <option value="">{location.state ? "Select District" : "Select State First"}</option>
                   {(districts[index] || []).map((district) => (<option key={district} value={district}>{district}</option>))}
                 </SelectField>
                 <SelectField id={`city-${index}`} name="city" value={location.city} onChange={(e) => handleLocationChange(index, e)} error={errors.serviceLocations?.[index]?.city} disabled={isLoading || !location.district}>
@@ -627,55 +533,7 @@ const CreateAccountPage = ({ onSwitchToLogin, handleAuthSuccess }: CreateAccount
             + Add Location
           </button>
         </div>
-
-        <div className="md:col-span-2 pt-4">
-          <label htmlFor="skills" className="block text-sm font-medium text-muted-foreground mb-2">
-            Skills & Interests
-          </label>
-          <InputField id="skills" name="skills" value={formData.skills} onChange={handleChange} error={errors.skills} disabled={isLoading} colSpan="md:col-span-2" placeholder="e.g., First Aid, Driving, Cooking, Communication, Logistics..." />
-          {errors.skills && <p className="text-destructive text-xs mt-1 animate-fade-in-up-sm">{errors.skills}</p>}
-          <button type="button" onClick={handleSuggestRoles} disabled={isLoading} className="mt-2 flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-sky-500 rounded-lg hover:bg-sky-600 focus:outline-none focus:ring-4 focus:ring-sky-300 transition-all duration-300 disabled:opacity-50 transform hover:-translate-y-1">
-            {isLoading ? <Spinner size="h-4 w-4" /> : "✨"}
-            <span>Suggest Roles</span>
-          </button>
-          {roleSuggestions.length > 0 && (
-            <div className="mt-4 p-4 bg-muted rounded-lg animate-fade-in">
-              <h4 className="font-semibold text-foreground">Suggested Roles:</h4>
-              <ul className="list-disc list-inside text-muted-foreground mt-2">
-                {roleSuggestions.map((role, i) => (<li key={i}>{role}</li>))}
-              </ul>
-            </div>
-          )}
-        </div>
-
-        <div className="md:col-span-2">
-          <label htmlFor="bio" className="block text-sm font-medium text-muted-foreground mb-2">
-            Your Volunteer Bio
-          </label>
-          <InputField id="bio" name="bio" value={formData.bio} onChange={handleChange} error={errors.bio} disabled={isLoading} colSpan="md:col-span-2" placeholder="A brief bio will be generated here..." />
-          {errors.bio && <p className="text-destructive text-xs mt-1 animate-fade-in-up-sm">{errors.bio}</p>}
-        </div>
-
-        <div className="md:col-span-2 -mt-4 mb-2 flex items-start">
-          <button type="button" onClick={handleGenerateBio} disabled={isLoading} className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-teal-500 rounded-lg hover:bg-teal-600 focus:outline-none focus:ring-4 focus:ring-teal-300 transition-all duration-300 disabled:opacity-50 transform hover:-translate-y-1">
-            {isLoading ? <Spinner size="h-4 w-4" /> : "✨"}
-            <span>Generate Bio</span>
-          </button>
-        </div>
-
-        <div className="md:col-span-2 mb-2 flex flex-col items-start">
-          <button type="button" onClick={handleGenerateScenario} disabled={isLoading} className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-orange-500 rounded-lg hover:bg-orange-600 focus:outline-none focus:ring-4 focus:ring-orange-300 transition-all duration-300 disabled:opacity-50 transform hover:-translate-y-1">
-            {isLoading ? <Spinner size="h-4 w-4" /> : "✨"}
-            <span>Generate Training Scenario</span>
-          </button>
-          {trainingScenario && (
-            <div className="mt-4 p-4 w-full bg-orange-900 bg-opacity-30 border border-orange-700 rounded-lg animate-fade-in">
-              <h4 className="font-semibold text-orange-300">Your Training Scenario:</h4>
-              <p className="text-orange-300 mt-1">{trainingScenario}</p>
-            </div>
-          )}
-        </div>
-
+        
         <div className="md:col-span-2">
           <button type="submit" disabled={isLoading} className="w-full px-4 py-3 font-semibold text-primary-foreground bg-primary rounded-lg hover:bg-primary/90 focus:outline-none focus:ring-4 focus:ring-ring/50 transition-all duration-300 disabled:opacity-70 transform hover:-translate-y-1">
             {isLoading ? <Spinner /> : 'Create Account'}
@@ -727,7 +585,7 @@ export default function AuthSystem() {
 
   const handleAuthSuccess = (data: any) => {
     localStorage.setItem("isAuthenticated", "true");
-    localStorage.setItem("userData", JSON.stringify(data.user));
+    localStorage.setItem("userData", JSON.stringify(data.user)); 
     localStorage.setItem("token", data.token);
     window.location.href = '/';
   };
