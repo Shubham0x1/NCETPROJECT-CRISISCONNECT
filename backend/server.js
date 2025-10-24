@@ -5,6 +5,7 @@ const cors = require("cors");
 const http = require("http");
 const path = require("path");
 const { Server } = require("socket.io");
+const next = require("next");
 require("dotenv").config();
 
 // Import Routes
@@ -22,7 +23,7 @@ const server = http.createServer(app);
 // Setup WebSocket server
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || "*", // Allow all origins
+    origin: process.env.CLIENT_URL || "*",
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
   }
 });
@@ -59,12 +60,14 @@ io.on("connection", (socket) => {
   });
 });
 
-// Serve React frontend build
-const frontendPath = path.join(__dirname, "../frontend/build"); // <-- Adjusted path
-app.use(express.static(frontendPath));
+// Setup Next.js
+const dev = process.env.NODE_ENV !== "production";
+const nextApp = next({ dev, dir: path.join(__dirname, "../frontend") });
+const handle = nextApp.getRequestHandler();
 
-app.get("*", (req, res) => {
-  res.sendFile(path.join(frontendPath, "index.html"));
+nextApp.prepare().then(() => {
+  // Let Next.js handle all remaining routes
+  app.all("*", (req, res) => handle(req, res));
 });
 
 // MongoDB Connection + Server Start
