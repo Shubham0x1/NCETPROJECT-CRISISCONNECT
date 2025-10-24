@@ -1,3 +1,9 @@
+# Overwrite frontend/components/header.tsx with a clean version (no Logout in header)
+$ErrorActionPreference = 'Stop'
+
+$target = "c:\Users\anura\Downloads\Demo2\Demo2\CrisisConnect\frontend\components\header.tsx"
+
+$content = @'
 "use client"
 
 import { useState, useEffect } from "react"
@@ -126,3 +132,7 @@ export function Header() {
     </header>
   )
 }
+'@
+
+Set-Content -Path $target -Value $content -NoNewline
+Write-Host "header.tsx has been reset and cleaned (Logout removed)." -ForegroundColor Green

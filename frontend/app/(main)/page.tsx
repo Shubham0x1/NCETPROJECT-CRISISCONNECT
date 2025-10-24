@@ -1,63 +1,71 @@
-// Corrected File: /app/(main)/page.tsx
-
 "use client"
 
 import { useState, useEffect } from "react"
-import { motion } from "framer-motion"
+import { motion, AnimatePresence } from "framer-motion"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { AlertTriangle, MapPin, Users, Clock, Plus } from "lucide-react"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { AlertTriangle, MapPin, Clock, Heart, CheckCircle, Navigation, Loader2, Zap, Shield, TrendingUp, Star, Award } from "lucide-react"
 import Link from "next/link"
-// import { Header } from "@/components/header" // <-- THIS LINE IS REMOVED
 import { Footer } from "@/components/footer"
+import { VolunteerButton } from "@/components/VolunteerButton"
+import { useToast } from "@/hooks/use-toast"
+import { formatDistanceToNow } from 'date-fns'
+import dynamic from 'next/dynamic'
+import { io, Socket } from 'socket.io-client'
+import { getProfile } from "@/lib/profileApi"
 
-// Mock data for incidents (Your data is preserved)
-const mockIncidents = [
-  {
-    id: 1,
-    type: "Fire",
-    description: "House fire on Oak Street",
-    location: "123 Oak Street",
-    distance: "0.5 miles",
-    timeReported: "15 minutes ago",
-    status: "In Progress",
-    severity: "high",
-  },
-  {
-    id: 2,
-    type: "Power Outage",
-    description: "Power outage affecting downtown area",
-    location: "Downtown District",
-    distance: "1.2 miles",
-    timeReported: "1 hour ago",
-    status: "Pending",
-    severity: "medium",
-  },
-  {
-    id: 3,
-    type: "Flood",
-    description: "Street flooding due to broken water main",
-    location: "Main Street & 5th Ave",
-    distance: "2.1 miles",
-    timeReported: "3 hours ago",
-    status: "Resolved",
-    severity: "low",
-  },
-]
+// Dynamically import Map component
+const Map = dynamic(() => import('@/components/Map'), { 
+  ssr: false,
+  loading: () => (
+    <div className="h-full flex items-center justify-center">
+      <Loader2 className="h-6 w-6 animate-spin" />
+      <span className="ml-2">Loading Map...</span>
+    </div>
+  )
+});
 
-// Your helper functions are preserved
+// Incident type definition
+interface Incident {
+  _id: string;
+  category: string;
+  description: string;
+  address: string;
+  status: string;
+  createdAt: string;
+  volunteers: string[];
+  location: {
+    type: 'Point';
+    coordinates: [number, number];
+  };
+  imageUrl?: string;
+  volunteersNeeded?: number; 
+  // Populated by backend for nearby incidents
+  reportedBy?: {
+    _id?: string;
+    fullname?: string;
+    email?: string;
+  };
+}
+
+// Helper functions
+const getSeverity = (category: string) => {
+  switch (category) {
+    case "Fire": case "Accident": case "Medical Emergency": return "high";
+    case "Power Outage": case "Flood": return "medium";
+    default: return "low";
+  }
+}
+
 const getSeverityColor = (severity: string) => {
   switch (severity) {
-    case "high":
-      return "bg-destructive text-destructive-foreground"
-    case "medium":
-      return "bg-primary text-primary-foreground"
-    case "low":
-      return "bg-secondary text-secondary-foreground"
-    default:
-      return "bg-muted text-muted-foreground"
+    case "high": return "bg-destructive text-destructive-foreground";
+    case "medium": return "bg-primary text-primary-foreground";
+    case "low": return "bg-secondary text-secondary-foreground";
+    default: return "bg-muted text-muted-foreground";
   }
 }
 
@@ -76,10 +84,19 @@ const getStatusColor = (status: string) => {
 
 export default function HomePage() {
   const router = useRouter()
+  const { toast } = useToast()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [userName, setUserName] = useState("")
   const [userLocations, setUserLocations] = useState<Array<{ state: string; city: string; district: string }>>([])
+  const [incidents, setIncidents] = useState<Incident[]>([])
+  const [incidentsLoading, setIncidentsLoading] = useState(true)
+  const [incidentsError, setIncidentsError] = useState('')
+  const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null)
+  const [showVolunteerModal, setShowVolunteerModal] = useState(false)
+  const [isVolunteering, setIsVolunteering] = useState(false)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [mapCenter, setMapCenter] = useState<[number, number]>([28.5355, 77.3910])
 
   useEffect(() => {
     const authStatus = localStorage.getItem("isAuthenticated") === "true"
@@ -88,158 +105,662 @@ export default function HomePage() {
       router.push("/auth") // Redirect if not authenticated
     } else {
       setIsAuthenticated(true)
-      const userData = localStorage.getItem("userData")
-      if (userData) {
-        const parsedUserData = JSON.parse(userData)
-        setUserName(parsedUserData.name || "User")
-        setUserLocations(parsedUserData.locations || [])
-      } else {
-        setUserName("User")
-        setUserLocations([])
+
+      // Fetch fresh profile data from API
+      const loadProfile = async () => {
+        try {
+          const profileData = await getProfile()
+          setUserName(profileData.fullname || profileData.name || "User")
+          setUserLocations(profileData.serviceLocations || [])
+          setCurrentUserId(profileData.id)
+        } catch (error) {
+          console.error("Error loading profile:", error)
+          // Fallback to localStorage if API fails
+          const userData = localStorage.getItem("userData")
+          if (userData) {
+            const parsedUserData = JSON.parse(userData)
+            setUserName(parsedUserData.fullname || parsedUserData.name || "User")
+            setUserLocations(parsedUserData.serviceLocations || [])
+            setCurrentUserId(parsedUserData.id)
+          } else {
+            setUserName("User")
+            setUserLocations([])
+          }
+        }
+        setIsLoading(false)
       }
-      setIsLoading(false)
+
+      loadProfile()
     }
   }, [router])
 
-  // We show a loading state while we check authentication
+  // Fetch nearby incidents
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const fetchIncidents = () => {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        setIncidentsError("Please log in to view nearby incidents.");
+        setIncidentsLoading(false);
+        return;
+      }
+
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude, longitude } = position.coords;
+          setMapCenter([latitude, longitude]);
+          
+          try {
+            const response = await fetch(
+              `${API_URL}/api/incidents/nearby?lat=${latitude}&lng=${longitude}`,
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+            
+            if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(errorData.message || "Failed to fetch incidents.");
+            }
+            
+            const data = await response.json();
+            setIncidents(data);
+          } catch (err: any) {
+            setIncidentsError(err.message);
+          } finally {
+            setIncidentsLoading(false);
+          }
+        },
+        () => {
+          setIncidentsError("Unable to retrieve your location. Please enable location services.");
+          setIncidentsLoading(false);
+        }
+      );
+    };
+
+    fetchIncidents();
+  }, [isAuthenticated])
+
+  // WebSocket connection for real-time updates
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+    const socket: Socket = io(API_URL);
+
+    socket.on('connect', () => {
+      console.log('WebSocket connected:', socket.id);
+    });
+
+    socket.on('new-incident', (newIncident: Incident) => {
+      console.log('New incident received via WebSocket:', newIncident);
+      
+      // Check if the incident is within the user's current view
+      // For now, we'll add it to the list regardless
+      setIncidents((prevIncidents) => {
+        // Check if incident already exists (to avoid duplicates)
+        const exists = prevIncidents.some(inc => inc._id === newIncident._id);
+        if (exists) return prevIncidents;
+        
+        // Add new incident at the beginning of the list
+        return [newIncident, ...prevIncidents];
+      });
+
+      // Show toast notification
+      toast({
+        title: "New Emergency Reported!",
+        description: `${newIncident.category} reported near ${newIncident.address}`,
+        duration: 5000,
+      });
+    });
+
+    socket.on('disconnect', () => {
+      console.log('WebSocket disconnected');
+    });
+
+    // Cleanup on unmount
+    return () => {
+      socket.disconnect();
+    };
+  }, [isAuthenticated, toast]);
+
+  const handleVolunteerClick = (incident: Incident) => {
+    setSelectedIncident(incident);
+    setShowVolunteerModal(true);
+  };
+
+  const confirmVolunteer = async () => {
+    if (!selectedIncident) return;
+    setIsVolunteering(true);
+    const token = localStorage.getItem("token");
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+    
+    try {
+      if (!token) throw new Error("Authentication error. Please log in again.");
+      
+      const response = await fetch(
+        `${API_URL}/api/incidents/${selectedIncident._id}/volunteer`,
+        {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        }
+      );
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Could not volunteer for the incident.");
+      }
+      
+      setIncidents((prev) =>
+        prev.map((incident) =>
+          incident._id === selectedIncident._id
+            ? { ...incident, volunteers: [...incident.volunteers, currentUserId || ''] }
+            : incident
+        )
+      );
+      
+      toast({
+        title: "Thank you for volunteering!",
+        description: `You've been assigned to help with the ${selectedIncident.category.toLowerCase()} incident.`,
+      });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setIsVolunteering(false);
+      setShowVolunteerModal(false);
+      setSelectedIncident(null);
+    }
+  }
+
+  // Simplified loading state
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/10 flex items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5 }}
+          className="text-center space-y-6"
+        >
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+            className="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full mx-auto"
+          />
+
+          <div className="space-y-2">
+            <p className="text-xl font-semibold text-foreground">Preparing your dashboard...</p>
+            <p className="text-muted-foreground">Connecting to emergency services</p>
+          </div>
+
+          <div className="flex justify-center space-x-2">
+            {[0, 1, 2].map((i) => (
+              <motion.div
+                key={i}
+                animate={{ y: [0, -8, 0] }}
+                transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }}
+                className="w-3 h-3 bg-primary rounded-full"
+              />
+            ))}
+          </div>
+        </motion.div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/10">
+      {/* Simplified Background Elements */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <motion.div
+          animate={{ x: [0, 20, 0], y: [0, -10, 0] }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-20 left-10 w-32 h-32 bg-primary/5 rounded-full"
+        />
+        <motion.div
+          animate={{ x: [0, -15, 0], y: [0, 15, 0] }}
+          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+          className="absolute top-40 right-20 w-24 h-24 bg-secondary/5 rounded-full"
+        />
+      </div>
+
+      {/* Hero Section */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8 }}
+        className="relative z-10"
+      >
+        <div className="bg-gradient-to-r from-primary/10 via-secondary/5 to-accent/10 border-b border-border/50">
+          <div className="container mx-auto px-4 py-12">
+            <div className="text-center max-w-4xl mx-auto">
+              {/* Platform Badge */}
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+                className="mb-6"
+              >
+                <div className="inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-primary/20 to-secondary/20 rounded-full border border-primary/20 backdrop-blur-sm">
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+                    className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full"
+                  />
+                  <span className="text-sm font-medium text-foreground">Live Emergency Response Platform</span>
+                </div>
+              </motion.div>
+
+              <motion.h1
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="text-5xl md:text-6xl font-bold text-foreground mb-6 bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent leading-tight"
+              >
+                CrisisConnect
+              </motion.h1>
+
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="text-xl text-muted-foreground mb-8 leading-relaxed"
+              >
+                Connect. Respond. Save.
+              </motion.p>
+
+
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
       {/* <Header />  <-- THIS LINE IS REMOVED */}
 
       {/* --- ALL OF YOUR ORIGINAL UI IS PRESERVED BELOW --- */}
-      <main className="container mx-auto px-4 py-8">
-        {/* Welcome Card */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-          <Card className="mb-8 bg-card border-border">
-            <CardHeader>
-              <CardTitle className="text-2xl font-bold text-foreground">Welcome back, {userName}</CardTitle>
-              <CardDescription className="flex items-center gap-2 text-muted-foreground">
-                <MapPin className="h-4 w-4" />
-                Your saved locations:{" "}
-                {userLocations.length > 0
-                  ? userLocations.map((loc) => `${loc.city}, ${loc.state}`).join("; ")
-                  : "No locations saved"}
-              </CardDescription>
+      <main className="container mx-auto px-4 py-8 relative z-10">
+        {/* Simplified Welcome Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="mb-12"
+        >
+          <Card className="mb-8 bg-gradient-to-br from-card via-card to-muted/20 border-border hover-lift relative overflow-hidden">
+            <CardHeader className="relative z-10">
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.2 }}
+                className="flex items-center gap-4"
+              >
+                <motion.div
+                  animate={{ scale: [1, 1.1, 1] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                  className="p-3 bg-primary/10 rounded-full"
+                >
+                  <Zap className="h-8 w-8 text-primary" />
+                </motion.div>
+                <div>
+                  <CardTitle className="text-3xl font-bold text-foreground bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+                    Welcome back, {userName}!
+                  </CardTitle>
+                  <CardDescription className="flex items-center gap-2 text-muted-foreground text-base mt-1">
+                    <MapPin className="h-5 w-5 text-accent" />
+                    Your saved locations:{" "}
+                    <span className="font-medium text-foreground">
+                      {userLocations.length > 0
+                        ? userLocations.map((loc) => `${loc.city}, ${loc.state}`).join("; ")
+                        : "No locations saved"}
+                    </span>
+                  </CardDescription>
+                </div>
+              </motion.div>
+
+              {/* Quick Stats */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 pt-6 border-t border-border/50"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-full">
+                    <TrendingUp className="h-5 w-5 text-blue-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Active Incidents</p>
+                    <p className="text-xl font-bold text-foreground">{incidents.filter(i => i.status !== "Resolved").length}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-full">
+                    <Heart className="h-5 w-5 text-green-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Your Contributions</p>
+                    <p className="text-xl font-bold text-foreground">
+                      {incidents.filter(i => i.volunteers.includes(currentUserId || '')).length}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-purple-100 dark:bg-purple-900/20 rounded-full">
+                    <Zap className="h-5 w-5 text-purple-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Response Rate</p>
+                    <p className="text-xl font-bold text-foreground">94%</p>
+                  </div>
+                </div>
+              </motion.div>
             </CardHeader>
           </Card>
         </motion.div>
 
-        {/* Action Buttons */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-          className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8"
-        >
-          <Link href="/report">
-            <Button className="w-full h-16 text-lg bg-primary hover:bg-primary/90 text-primary-foreground">
-              <Plus className="mr-2 h-6 w-6" />
-              Report Problem
-            </Button>
-          </Link>
-          <Link href="/nearby">
-            <Button
-              variant="outline"
-              className="w-full h-16 text-lg border-border hover:bg-accent hover:text-accent-foreground bg-transparent"
-            >
-              <MapPin className="mr-2 h-6 w-6" />
-              View Nearby Incidents
-            </Button>
-          </Link>
-          <Link href="/contributions">
-            <Button
-              variant="outline"
-              className="w-full h-16 text-lg border-border hover:bg-secondary hover:text-secondary-foreground bg-transparent"
-            >
-              <Users className="mr-2 h-6 w-6" />
-              My Contributions
-            </Button>
-          </Link>
-        </motion.div>
 
-        {/* Real-time Incident Feed */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-        >
-          <Card className="bg-card border-border">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-foreground">
-                <AlertTriangle className="h-5 w-5 text-primary" />
-                Recent Incidents
-              </CardTitle>
-              <CardDescription className="text-muted-foreground">Live updates from your community</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {mockIncidents.map((incident, index) => (
+        {/* Real-time Incidents with Map */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }} 
+            animate={{ opacity: 1, x: 0 }} 
+            transition={{ duration: 0.5, delay: 0.2 }} 
+            className="lg:col-span-2"
+          >
+            <Card className="bg-card border-border h-[600px]">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-foreground">
+                  <Navigation className="h-5 w-5 text-accent" /> 
+                  Live Incident Map
+                </CardTitle>
+                <CardDescription className="text-muted-foreground">
+                  Real-time incidents near your location
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="h-[500px] p-0">
+                {incidentsLoading ? (
+                  <div className="h-full flex items-center justify-center">
+                    <Loader2 className="h-8 w-8 animate-spin" />
+                    <span className="ml-2">Loading incidents...</span>
+                  </div>
+                ) : incidentsError ? (
+                  <div className="h-full flex items-center justify-center text-destructive">
+                    <p>{incidentsError}</p>
+                  </div>
+                ) : (
+                  <Map incidents={incidents} center={mapCenter} />
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div 
+            initial={{ opacity: 0, x: 20 }} 
+            animate={{ opacity: 1, x: 0 }} 
+            transition={{ duration: 0.5, delay: 0.3 }} 
+            className="space-y-4"
+          >
+            <Card className="bg-card border-border">
+              <CardHeader>
+                <CardTitle className="text-foreground">Active Incidents</CardTitle>
+                <CardDescription className="text-muted-foreground">
+                  {incidents.filter((i) => i.status !== "Resolved").length} incidents need assistance
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 max-h-[500px] overflow-y-auto">
+                {incidentsLoading ? (
+                  <div className="text-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                  </div>
+                ) : incidentsError ? (
+                  <p className="text-sm text-destructive text-center py-8">{incidentsError}</p>
+                ) : incidents.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    No incidents in your area
+                  </p>
+                ) : (
+                  incidents.map((incident, index) => {
+                    const severity = getSeverity(incident.category);
+                    const isUserVolunteering = currentUserId ? incident.volunteers.includes(currentUserId) : false;
+                    
+                    return (
+                      <motion.div 
+                        key={incident._id} 
+                        initial={{ opacity: 0, y: 20 }} 
+                        animate={{ opacity: 1, y: 0 }} 
+                        transition={{ duration: 0.3, delay: index * 0.05 }} 
+                        className="p-4 rounded-lg border border-border bg-background hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="space-y-3">
+                          {isUserVolunteering && incident.reportedBy?.fullname && (
+                            <div className="text-xs text-muted-foreground flex items-center gap-2">
+                              <span className="inline-block h-2 w-2 rounded-full bg-accent" />
+                              <span className="font-semibold text-foreground">{incident.reportedBy.fullname}</span>
+                            </div>
+                          )}
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-2">
+                              <Badge className={getSeverityColor(severity)}>{incident.category}</Badge>
+                              <Badge variant="outline" className={getStatusColor(incident.status)}>
+                                {incident.status}
+                              </Badge>
+                            </div>
+                          </div>
+                          {incident.imageUrl && (
+                            <div className="mt-3">
+                              <img 
+                                src={incident.imageUrl} 
+                                alt={`Image for ${incident.category} incident`}
+                                className="rounded-lg w-full h-40 object-cover border border-border"
+                                onError={(e) => (e.currentTarget.style.display = 'none')}
+                              />
+                            </div>
+                          )}
+                          <p className="text-sm font-medium text-foreground pt-1">{incident.description}</p>
+                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <MapPin className="h-3 w-3" /> {incident.address}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" /> 
+                              {formatDistanceToNow(new Date(incident.createdAt), { addSuffix: true })}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <Heart className="h-3 w-3" />
+                              <span>
+                                {incident.volunteers.length} {incident.volunteers.length === 1 ? 'volunteer' : 'volunteers'}
+                              </span>
+                            </div>
+                            {incident.status !== "Resolved" && (
+                              <Button 
+                                size="sm" 
+                                variant={isUserVolunteering ? "secondary" : "default"}
+                                disabled={isUserVolunteering} 
+                                onClick={() => handleVolunteerClick(incident)} 
+                                className="h-8 text-xs hover:scale-105 transition-transform"
+                              >
+                                {isUserVolunteering ? (
+                                  <><CheckCircle className="mr-1 h-3 w-3" /> Volunteering</>
+                                ) : (
+                                  <><Heart className="mr-1 h-3 w-3" />I Will Help</>
+                                )}
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </motion.div>
+                    )
+                  })
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
+        </div>
+      </main>
+
+      {/* Simplified Volunteer Confirmation Modal */}
+      <AnimatePresence>
+        {showVolunteerModal && selectedIncident && (
+          <Dialog open={showVolunteerModal} onOpenChange={setShowVolunteerModal}>
+            <DialogContent className="sm:max-w-lg z-[1000]">
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="relative"
+              >
+                <DialogHeader>
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-center gap-3 mb-2"
+                  >
+                    <motion.div
+                      animate={{ rotate: [0, 10, -10, 0] }}
+                      transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                      className="p-2 bg-primary/10 rounded-full"
+                    >
+                      <Heart className="h-5 w-5 text-primary" />
+                    </motion.div>
+                    <DialogTitle className="text-xl font-bold text-foreground">
+                      Volunteer Confirmation
+                    </DialogTitle>
+                  </motion.div>
+                  <DialogDescription className="text-muted-foreground">
+                    Your help can make a real difference. Ready to assist?
+                  </DialogDescription>
+                </DialogHeader>
+
                 <motion.div
-                  key={incident.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.3, delay: index * 0.1 }}
-                  className="flex items-start justify-between p-4 rounded-lg border border-border bg-background hover:bg-muted/50 transition-colors"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.1 }}
+                  className="py-4"
                 >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Badge className={getSeverityColor(incident.severity)}>{incident.type}</Badge>
-                      <Badge variant="outline" className={getStatusColor(incident.status)}>
-                        {incident.status}
+                  <div className="p-4 bg-muted/50 rounded-lg space-y-3">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge className={getSeverityColor(getSeverity(selectedIncident.category))}>
+                        {selectedIncident.category}
+                      </Badge>
+                      <Badge variant="outline" className={getStatusColor(selectedIncident.status)}>
+                        {selectedIncident.status}
                       </Badge>
                     </div>
-                    <h3 className="font-semibold text-foreground mb-1">{incident.description}</h3>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <MapPin className="h-3 w-3" />
-                        {incident.location} • {incident.distance}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {incident.timeReported}
-                      </span>
+
+                    <p className="text-sm font-medium text-foreground leading-relaxed">
+                      {selectedIncident.description}
+                    </p>
+
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <MapPin className="h-4 w-4 text-accent" />
+                      <span className="font-medium">{selectedIncident.address}</span>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Community Support</span>
+                        <span className="font-semibold text-primary">
+                          {selectedIncident.volunteers.length}/{selectedIncident.volunteersNeeded || 3} volunteers
+                        </span>
+                      </div>
+                          <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{ width: `${(selectedIncident.volunteers.length / (selectedIncident.volunteersNeeded || 3)) * 100}%` }}
+                              transition={{ duration: 0.5 }}
+                              className={`h-full rounded-full ${getSeverity(selectedIncident.category) === 'high' ? 'bg-red-500' : getSeverity(selectedIncident.category) === 'medium' ? 'bg-yellow-500' : 'bg-green-500'}`}
+                            />
+                          </div>
                     </div>
                   </div>
                 </motion.div>
-              ))}
-            </CardContent>
-          </Card>
-        </motion.div>
 
-        {/* Map Placeholder */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
-          className="mt-8"
-        >
-          <Card className="bg-card border-border">
-            <CardHeader>
-              <CardTitle className="text-foreground">Community Map</CardTitle>
-              <CardDescription className="text-muted-foreground">View incidents in your area</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-64 bg-muted rounded-lg flex items-center justify-center">
-                <div className="text-center text-muted-foreground">
-                  <MapPin className="h-12 w-12 mx-auto mb-2" />
-                  <p>Interactive map will be integrated here</p>
-                  <p className="text-sm">Google Maps API integration coming soon</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      </main>
+                <DialogFooter className="gap-3">
+                  <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowVolunteerModal(false)}
+                      disabled={isVolunteering}
+                    >
+                      Cancel
+                    </Button>
+                  </motion.div>
+
+                  <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                    <Button
+                      onClick={confirmVolunteer}
+                      disabled={isVolunteering}
+                      className="bg-primary hover:bg-primary/90 text-white"
+                    >
+                      {isVolunteering ? (
+                        <motion.div className="flex items-center gap-2">
+                          <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                            className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
+                          />
+                          <span>Joining...</span>
+                        </motion.div>
+                      ) : (
+                        <>
+                          <Heart className="mr-2 h-4 w-4" />
+                          Yes, I'll Help
+                        </>
+                      )}
+                    </Button>
+                  </motion.div>
+                </DialogFooter>
+              </motion.div>
+            </DialogContent>
+          </Dialog>
+        )}
+      </AnimatePresence>
+
+      {/* Simplified Notification Center */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.8 }}
+        className="fixed bottom-6 right-6 z-50"
+      >
+        <div className="relative">
+          <Button
+            size="lg"
+            className="h-12 w-12 rounded-full bg-primary hover:bg-primary/90 shadow-lg hover:shadow-xl transition-all duration-300 relative"
+          >
+            <Zap className="h-5 w-5 text-white" />
+
+            {/* Notification badge */}
+            {incidents.filter(i => i.status !== "Resolved").length > 0 && (
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                className="absolute -top-1 -right-1 w-5 h-5 bg-destructive rounded-full flex items-center justify-center"
+              >
+                <span className="text-xs font-bold text-white">
+                  {incidents.filter(i => i.status !== "Resolved").length}
+                </span>
+              </motion.div>
+            )}
+          </Button>
+
+          {/* Tooltip */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            whileHover={{ opacity: 1, scale: 1 }}
+            className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-popover border border-border rounded-lg shadow-lg text-sm font-medium text-popover-foreground whitespace-nowrap"
+          >
+            {incidents.filter(i => i.status !== "Resolved").length} active emergencies
+            <div className="absolute top-full right-3 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-popover" />
+          </motion.div>
+        </div>
+      </motion.div>
 
       <Footer />
     </div>

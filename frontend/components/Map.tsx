@@ -3,7 +3,8 @@
 
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
-import L from 'leaflet'
+import { type LatLngExpression } from 'leaflet'
+import defaultIcon from '@/components/mapIcon'
 
 // This interface must match the one in your nearby/page.tsx
 interface Incident {
@@ -15,35 +16,40 @@ interface Incident {
   };
 }
 
-// Fix for default Leaflet icon not appearing correctly in React
-const defaultIcon = L.icon({
-    iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34],
-    shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
-    shadowSize: [41, 41]
-});
-
 interface MapProps {
     incidents: Incident[];
     center: [number, number]; // [latitude, longitude]
 }
 
 export default function Map({ incidents, center }: MapProps) {
+  // Validate and normalize center
+  const isNum = (v: any) => typeof v === 'number' && isFinite(v);
+  const safeCenter: [number, number] = (Array.isArray(center) && isNum(center[0]) && isNum(center[1]))
+    ? center
+    : [28.5355, 77.3910];
+
+  // Filter incidents with valid coordinates and map to [lat, lng]
+  const markers = (incidents || []).filter((inc) => {
+    const coords = inc?.location?.coordinates;
+    return Array.isArray(coords) && coords.length === 2 && isNum(coords[0]) && isNum(coords[1]);
+  }).map((incident) => ({
+    ...incident,
+    location: {
+      coordinates: [incident.location.coordinates[1], incident.location.coordinates[0]]
+    }
+  }));
+
+  const centerExpr: LatLngExpression = safeCenter as LatLngExpression;
   return (
-    <MapContainer center={center} zoom={13} style={{ height: '100%', width: '100%', borderRadius: '0 0 0.5rem 0.5rem' }}>
+    <MapContainer center={centerExpr} zoom={13} style={{ height: '100%', width: '100%', borderRadius: '0 0 0.5rem 0.5rem' }}>
       <TileLayer
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
       />
-      {incidents.map((incident) => (
+      {markers.map((incident) => (
         <Marker
           key={incident._id}
-          position={[
-            incident.location.coordinates[1], // Latitude
-            incident.location.coordinates[0]  // Longitude
-          ]}
+          position={incident.location.coordinates as [number, number]}
           icon={defaultIcon}
         >
           <Popup>

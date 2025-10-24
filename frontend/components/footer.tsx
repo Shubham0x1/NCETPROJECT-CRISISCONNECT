@@ -28,7 +28,7 @@ export function Footer() {
         </div>
 
         <div className="mt-6 pt-6 border-t border-border text-center text-sm text-muted-foreground">
-          <p>&copy; 2024 CrisisConnect. Built for community safety and support.</p>
+          <p>&copy; 2025 CrisisConnect. Built for community safety and support.</p>
         </div>
       </div>
     </footer>
