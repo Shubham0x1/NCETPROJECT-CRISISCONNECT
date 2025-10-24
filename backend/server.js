@@ -3,6 +3,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const http = require("http");
+const path = require("path");
 const { Server } = require("socket.io");
 require("dotenv").config();
 
@@ -19,8 +20,8 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
-    methods: ["GET", "POST"]
+    origin: process.env.CLIENT_URL || "*", // Allow all origins on Render
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
   }
 });
 
@@ -28,16 +29,17 @@ const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI;
 
 // Make io accessible to routes
-app.set('io', io);
+app.set("io", io);
 
 // Middleware
 app.use(express.json());
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  origin: process.env.CLIENT_URL || '*',
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   credentials: true
 }));
-// Routes
+
+// API Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/locations", locationsRoutes);
 app.use("/api/user-locations", userLocationRoutes);
@@ -47,17 +49,20 @@ app.use("/api/profile", profileRoutes);
 // app.use('/api/translate', translateRoutes); // <-- REMOVED
 
 // WebSocket Connection
-io.on('connection', (socket) => {
-  console.log('A user connected:', socket.id);
+io.on("connection", (socket) => {
+  console.log("A user connected:", socket.id);
 
-  socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.id);
+  socket.on("disconnect", () => {
+    console.log("User disconnected:", socket.id);
   });
 });
 
-// Default route (health check)
-app.get("/", (req, res) => {
-  res.send("CrisisConnect server is up and running!");
+// Serve frontend build (React)
+const frontendPath = path.join(__dirname, "frontend", "build");
+app.use(express.static(frontendPath));
+
+app.get("*", (req, res) => {
+  res.sendFile(path.join(frontendPath, "index.html"));
 });
 
 // MongoDB Connection + Server Start
@@ -74,7 +79,7 @@ async function startServer() {
     }
 
     server.listen(PORT, () => {
-      console.log(`Server running on http://localhost:${PORT}`);
+      console.log(`Server running on port ${PORT}`);
       console.log(`WebSocket server ready`);
     });
   } catch (err) {
@@ -82,7 +87,7 @@ async function startServer() {
     console.warn("Starting server without DB connection (DB-dependent features won't work).");
 
     server.listen(PORT, () => {
-      console.log(`Server running on http://localhost:${PORT}`);
+      console.log(`Server running on port ${PORT}`);
       console.log(`WebSocket server ready`);
     });
   }
