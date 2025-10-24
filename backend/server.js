@@ -18,9 +18,11 @@ const profileRoutes = require("./routes/profileRoutes");
 
 const app = express();
 const server = http.createServer(app);
+
+// Setup WebSocket server
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || "*", // Allow all origins on Render
+    origin: process.env.CLIENT_URL || "*", // Allow all origins
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
   }
 });
@@ -28,7 +30,7 @@ const io = new Server(server, {
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI;
 
-// Make io accessible to routes
+// Make io accessible in routes
 app.set("io", io);
 
 // Middleware
@@ -57,8 +59,8 @@ io.on("connection", (socket) => {
   });
 });
 
-// Serve frontend build (React)
-const frontendPath = path.join(__dirname, "frontend", "build");
+// Serve React frontend build
+const frontendPath = path.join(__dirname, "../frontend/build"); // <-- Adjusted path
 app.use(express.static(frontendPath));
 
 app.get("*", (req, res) => {
