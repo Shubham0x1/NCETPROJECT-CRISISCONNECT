@@ -32,8 +32,11 @@ app.set('io', io);
 
 // Middleware
 app.use(express.json());
-app.use(cors());
-
+app.use(cors({
+  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  credentials: true
+}));
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/locations", locationsRoutes);
